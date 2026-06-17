@@ -81,8 +81,24 @@
     .photo-hint { font-size: 12px; color: #a0aec0; margin-top: 4px; }
     #preview-wrap { display: none; margin-bottom: 24px; text-align: center; }
     #preview-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 6px; }
-    #preview-grid img { width: 100%; height: 90px; object-fit: cover; border-radius: 8px; box-shadow: 0 1px 4px rgba(0,0,0,.15); }
-    #preview-name { font-size: 12px; color: #718096; margin-top: 8px; }
+    .thumb { position: relative; }
+    .thumb img { width: 100%; height: 90px; object-fit: cover; border-radius: 8px; box-shadow: 0 1px 4px rgba(0,0,0,.15); display: block; }
+    .thumb .del {
+      position: absolute; top: -8px; right: -8px;
+      width: 26px; height: 26px;
+      background: #e53e3e; color: #fff;
+      border: 2px solid #fff; border-radius: 50%;
+      font-size: 16px; line-height: 1; font-weight: 700;
+      display: flex; align-items: center; justify-content: center;
+      cursor: pointer; box-shadow: 0 1px 3px rgba(0,0,0,.3);
+    }
+    .add-more {
+      margin-top: 10px; padding: 10px;
+      background: #edf2f7; color: #2b6cb0;
+      border: 1.5px dashed #cbd5e0; border-radius: 10px;
+      font-size: 14px; font-weight: 600; cursor: pointer; width: 100%;
+    }
+    #preview-name { font-size: 13px; color: #718096; margin-top: 10px; }
     button[type="submit"] {
       width: 100%;
       padding: 15px;
@@ -153,7 +169,7 @@
 
     <label>写真（複数選択できます）</label>
     <div class="photo-area" id="photo-area">
-      <input type="file" id="photo" name="photo" accept="image/*" multiple required>
+      <input type="file" id="photo" name="photo" accept="image/*" multiple>
       <div class="photo-icon">📷</div>
       <div class="photo-label">タップして写真を選択</div>
       <div class="photo-hint">複数まとめて選べます / JPG・PNG・HEIC対応</div>
@@ -162,6 +178,7 @@
     <div id="preview-wrap">
       <div id="preview-grid"></div>
       <div id="preview-name"></div>
+      <button type="button" class="add-more" id="add-more">＋ 写真を追加する</button>
     </div>
 
     <button type="submit" id="submit-btn">アップロード</button>
@@ -187,25 +204,52 @@
   }
   setToday();
 
-  // 写真選択時にプレビュー表示（複数対応）
-  document.getElementById('photo').addEventListener('change', function () {
-    const files = Array.from(this.files);
-    if (!files.length) return;
-    const grid = document.getElementById('preview-grid');
+  // 選択中の写真を保持する配列
+  let selectedFiles = [];
+  const photoInput = document.getElementById('photo');
+  const grid = document.getElementById('preview-grid');
+
+  // プレビューを描き直す
+  function renderPreview() {
     grid.innerHTML = '';
-    files.forEach(file => {
+    if (selectedFiles.length === 0) {
+      document.getElementById('preview-wrap').style.display = 'none';
+      document.getElementById('photo-area').style.display = 'block';
+      return;
+    }
+    selectedFiles.forEach((file, index) => {
+      const wrap = document.createElement('div');
+      wrap.className = 'thumb';
+      const img = document.createElement('img');
       const reader = new FileReader();
-      reader.onload = e => {
-        const img = document.createElement('img');
-        img.src = e.target.result;
-        grid.appendChild(img);
-      };
+      reader.onload = e => { img.src = e.target.result; };
       reader.readAsDataURL(file);
+      const del = document.createElement('div');
+      del.className = 'del';
+      del.textContent = '×';
+      del.title = 'この写真を取り消す';
+      del.addEventListener('click', () => {
+        selectedFiles.splice(index, 1);
+        renderPreview();
+      });
+      wrap.appendChild(img);
+      wrap.appendChild(del);
+      grid.appendChild(wrap);
     });
-    document.getElementById('preview-name').textContent = files.length + '枚 選択中';
+    document.getElementById('preview-name').textContent = selectedFiles.length + '枚 選択中';
     document.getElementById('preview-wrap').style.display = 'block';
     document.getElementById('photo-area').style.display = 'none';
+  }
+
+  // 写真選択時：選んだ写真を追加
+  photoInput.addEventListener('change', function () {
+    Array.from(this.files).forEach(f => selectedFiles.push(f));
+    this.value = '';  // 同じ写真を再度選べるようにリセット
+    renderPreview();
   });
+
+  // 「写真を追加する」ボタン
+  document.getElementById('add-more').addEventListener('click', () => photoInput.click());
 
   // フォーム送信
   document.getElementById('upload-form').addEventListener('submit', async function (e) {
@@ -214,12 +258,25 @@
     const loading = document.getElementById('loading');
     const status = document.getElementById('status');
 
+    if (selectedFiles.length === 0) {
+      status.style.display = 'block';
+      status.className = 'err';
+      status.textContent = '❌ 写真を選択してください';
+      return;
+    }
+
     btn.disabled = true;
     loading.style.display = 'block';
     status.style.display = 'none';
 
     try {
-      const formData = new FormData(this);
+      // 選択中の写真から送信データを組み立てる
+      const formData = new FormData();
+      formData.append('store_name', document.getElementById('store_name').value);
+      formData.append('uploader', document.getElementById('uploader').value);
+      formData.append('taken_date', dtInput.value);
+      selectedFiles.forEach(f => formData.append('photo', f));
+
       const res = await fetch('/upload', { method: 'POST', body: formData });
       const data = await res.json();
 
@@ -228,10 +285,8 @@
         status.className = 'ok';
         status.textContent = '✅ ' + data.message;
         // 店舗名・アップロード者は残し、写真だけリセット
-        document.getElementById('photo').value = '';
-        document.getElementById('preview-grid').innerHTML = '';
-        document.getElementById('preview-wrap').style.display = 'none';
-        document.getElementById('photo-area').style.display = 'block';
+        selectedFiles = [];
+        renderPreview();
         setToday();
       } else {
         status.className = 'err';
