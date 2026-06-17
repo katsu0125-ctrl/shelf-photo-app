@@ -102,7 +102,6 @@ def upload():
     except ValueError:
         taken_date = datetime.now()
 
-    ym_folder = taken_date.strftime('%Y-%m')
     date_str = taken_date.strftime('%Y%m%d')
     safe_store = _sanitize(store_name)
     safe_uploader = _sanitize(uploader)
@@ -110,8 +109,6 @@ def upload():
     try:
         service = get_drive_service()
         root_id = get_root_folder_id(service)
-        store_id = get_or_create_folder(service, store_name, root_id)
-        ym_id = get_or_create_folder(service, ym_folder, store_id)
 
         uploaded_names = []
         for i, photo in enumerate(photos, start=1):
@@ -120,7 +117,7 @@ def upload():
             filename = f"{date_str}_{safe_store}_{safe_uploader}{seq}{ext}"
             file_data = photo.read()
             media = MediaIoBaseUpload(io.BytesIO(file_data), mimetype=photo.content_type or 'image/jpeg')
-            file_meta = {'name': filename, 'parents': [ym_id]}
+            file_meta = {'name': filename, 'parents': [root_id]}
             service.files().create(body=file_meta, media_body=media, fields='id').execute()
             uploaded_names.append(filename)
 
