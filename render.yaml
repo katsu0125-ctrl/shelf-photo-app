@@ -1,0 +1,12 @@
+services:
+  - type: web
+    name: shelf-photo-app
+    runtime: python
+    plan: free
+    buildCommand: pip install -r requirements.txt
+    startCommand: gunicorn app:app
+    envVars:
+      - key: GOOGLE_DRIVE_ROOT_FOLDER_ID
+        sync: false
+      - key: GOOGLE_TOKEN_JSON
+        sync: false

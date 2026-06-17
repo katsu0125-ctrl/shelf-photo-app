@@ -1,0 +1,217 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0">
+  <title>棚写真アップロード</title>
+  <style>
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+      background: #f0f4f8;
+      min-height: 100vh;
+      display: flex;
+      align-items: flex-start;
+      justify-content: center;
+      padding: 24px 16px 48px;
+    }
+    .card {
+      background: #fff;
+      border-radius: 16px;
+      box-shadow: 0 2px 16px rgba(0,0,0,.1);
+      padding: 28px 24px;
+      width: 100%;
+      max-width: 480px;
+    }
+    h1 {
+      font-size: 20px;
+      font-weight: 700;
+      color: #1a202c;
+      margin-bottom: 4px;
+    }
+    .subtitle {
+      font-size: 13px;
+      color: #718096;
+      margin-bottom: 24px;
+    }
+    label {
+      display: block;
+      font-size: 14px;
+      font-weight: 600;
+      color: #4a5568;
+      margin-bottom: 6px;
+    }
+    input[type="text"], input[type="datetime-local"] {
+      width: 100%;
+      padding: 12px 14px;
+      border: 1.5px solid #cbd5e0;
+      border-radius: 10px;
+      font-size: 16px;
+      color: #1a202c;
+      background: #f7fafc;
+      outline: none;
+      transition: border-color .2s;
+      margin-bottom: 20px;
+    }
+    input[type="text"]:focus, input[type="datetime-local"]:focus {
+      border-color: #4299e1;
+      background: #fff;
+    }
+    .photo-area {
+      border: 2px dashed #cbd5e0;
+      border-radius: 12px;
+      padding: 28px 16px;
+      text-align: center;
+      cursor: pointer;
+      transition: border-color .2s, background .2s;
+      margin-bottom: 24px;
+      position: relative;
+    }
+    .photo-area:hover { border-color: #4299e1; background: #ebf8ff; }
+    .photo-area input[type="file"] {
+      position: absolute; inset: 0; opacity: 0; cursor: pointer; width: 100%; height: 100%;
+    }
+    .photo-icon { font-size: 40px; margin-bottom: 8px; }
+    .photo-label { font-size: 15px; color: #4a5568; font-weight: 600; }
+    .photo-hint { font-size: 12px; color: #a0aec0; margin-top: 4px; }
+    #preview-wrap { display: none; margin-bottom: 24px; text-align: center; }
+    #preview-wrap img { max-width: 100%; max-height: 220px; border-radius: 10px; box-shadow: 0 2px 8px rgba(0,0,0,.15); }
+    #preview-name { font-size: 12px; color: #718096; margin-top: 6px; }
+    button[type="submit"] {
+      width: 100%;
+      padding: 15px;
+      background: #3182ce;
+      color: #fff;
+      border: none;
+      border-radius: 12px;
+      font-size: 17px;
+      font-weight: 700;
+      cursor: pointer;
+      transition: background .2s, transform .1s;
+    }
+    button[type="submit"]:hover { background: #2b6cb0; }
+    button[type="submit"]:active { transform: scale(.98); }
+    button[type="submit"]:disabled { background: #a0aec0; cursor: not-allowed; }
+    #status {
+      margin-top: 20px;
+      padding: 14px 16px;
+      border-radius: 10px;
+      font-size: 15px;
+      font-weight: 600;
+      display: none;
+    }
+    #status.ok { background: #c6f6d5; color: #276749; }
+    #status.err { background: #fed7d7; color: #9b2c2c; }
+    .loading { display: none; text-align: center; margin-top: 14px; color: #718096; font-size: 14px; }
+    .spinner {
+      display: inline-block;
+      width: 20px; height: 20px;
+      border: 3px solid #cbd5e0;
+      border-top-color: #3182ce;
+      border-radius: 50%;
+      animation: spin .8s linear infinite;
+      vertical-align: middle;
+      margin-right: 6px;
+    }
+    @keyframes spin { to { transform: rotate(360deg); } }
+  </style>
+</head>
+<body>
+<div class="card">
+  <h1>📸 棚写真アップロード</h1>
+  <p class="subtitle">撮影した売り場の写真をアップロードしてください</p>
+
+  <form id="upload-form" enctype="multipart/form-data">
+    <label for="store_name">店舗名</label>
+    <input type="text" id="store_name" name="store_name" placeholder="例: ヨドバシカメラ秋葉原店" required>
+
+    <label for="taken_at">撮影日時</label>
+    <input type="datetime-local" id="taken_at" name="taken_at">
+
+    <label>写真</label>
+    <div class="photo-area" id="photo-area">
+      <input type="file" id="photo" name="photo" accept="image/*" capture="environment" required>
+      <div class="photo-icon">📷</div>
+      <div class="photo-label">タップして写真を選択</div>
+      <div class="photo-hint">JPG / PNG / HEIC対応 (最大20MB)</div>
+    </div>
+
+    <div id="preview-wrap">
+      <img id="preview-img" src="" alt="プレビュー">
+      <div id="preview-name"></div>
+    </div>
+
+    <button type="submit" id="submit-btn">アップロード</button>
+  </form>
+
+  <div class="loading" id="loading">
+    <span class="spinner"></span>アップロード中...
+  </div>
+  <div id="status"></div>
+</div>
+
+<script>
+  // 現在日時をデフォルト設定
+  const dtInput = document.getElementById('taken_at');
+  const now = new Date();
+  now.setMinutes(now.getMinutes() - now.getTimezoneOffset());
+  dtInput.value = now.toISOString().slice(0, 16);
+
+  // 写真選択時にプレビュー表示
+  document.getElementById('photo').addEventListener('change', function () {
+    const file = this.files[0];
+    if (!file) return;
+    const reader = new FileReader();
+    reader.onload = e => {
+      document.getElementById('preview-img').src = e.target.result;
+      document.getElementById('preview-name').textContent = file.name;
+      document.getElementById('preview-wrap').style.display = 'block';
+      document.getElementById('photo-area').style.display = 'none';
+    };
+    reader.readAsDataURL(file);
+  });
+
+  // フォーム送信
+  document.getElementById('upload-form').addEventListener('submit', async function (e) {
+    e.preventDefault();
+    const btn = document.getElementById('submit-btn');
+    const loading = document.getElementById('loading');
+    const status = document.getElementById('status');
+
+    btn.disabled = true;
+    loading.style.display = 'block';
+    status.style.display = 'none';
+
+    try {
+      const formData = new FormData(this);
+      const res = await fetch('/upload', { method: 'POST', body: formData });
+      const data = await res.json();
+
+      status.style.display = 'block';
+      if (data.ok) {
+        status.className = 'ok';
+        status.textContent = '✅ ' + data.message;
+        // フォームをリセット
+        this.reset();
+        document.getElementById('preview-wrap').style.display = 'none';
+        document.getElementById('photo-area').style.display = 'block';
+        // 日時を再設定
+        const n = new Date();
+        n.setMinutes(n.getMinutes() - n.getTimezoneOffset());
+        dtInput.value = n.toISOString().slice(0, 16);
+      } else {
+        status.className = 'err';
+        status.textContent = '❌ ' + data.error;
+      }
+    } catch (err) {
+      status.style.display = 'block';
+      status.className = 'err';
+      status.textContent = '❌ 通信エラーが発生しました';
+    } finally {
+      btn.disabled = false;
+      loading.style.display = 'none';
+    }
+  });
+</script>
+</body>
+</html>
