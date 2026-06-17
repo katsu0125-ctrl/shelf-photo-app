@@ -41,7 +41,7 @@
       color: #4a5568;
       margin-bottom: 6px;
     }
-    input[type="text"], input[type="datetime-local"] {
+    input[type="text"], input[type="date"] {
       width: 100%;
       padding: 12px 14px;
       border: 1.5px solid #cbd5e0;
@@ -52,8 +52,13 @@
       outline: none;
       transition: border-color .2s;
       margin-bottom: 20px;
+      -webkit-appearance: none;
+      appearance: none;
+      min-height: 48px;
+      font-family: inherit;
     }
-    input[type="text"]:focus, input[type="datetime-local"]:focus {
+    input[type="date"] { display: block; }
+    input[type="text"]:focus, input[type="date"]:focus {
       border-color: #4299e1;
       background: #fff;
     }
@@ -103,6 +108,20 @@
     }
     #status.ok { background: #c6f6d5; color: #276749; }
     #status.err { background: #fed7d7; color: #9b2c2c; }
+    .folder-link {
+      display: block;
+      margin-top: 20px;
+      padding: 14px;
+      text-align: center;
+      background: #edf2f7;
+      color: #2b6cb0;
+      border: 1.5px solid #cbd5e0;
+      border-radius: 12px;
+      font-size: 15px;
+      font-weight: 600;
+      text-decoration: none;
+    }
+    .folder-link:active { background: #e2e8f0; }
     .loading { display: none; text-align: center; margin-top: 14px; color: #718096; font-size: 14px; }
     .spinner {
       display: inline-block;
@@ -152,6 +171,10 @@
     <span class="spinner"></span>アップロード中...
   </div>
   <div id="status"></div>
+
+  <a class="folder-link" href="https://drive.google.com/drive/folders/17LKO_dVxdNr01Wu6abmzRdF-dyB_dyof?usp=sharing" target="_blank" rel="noopener">
+    🗂 アップロードした写真を確認する
+  </a>
 </div>
 
 <script>
