@@ -74,27 +74,38 @@ def index():
     return render_template('index.html')
 
 
+def _sanitize(name):
+    """ファイル名に使えない文字を除去"""
+    for ch in '/\\:*?"<>|':
+        name = name.replace(ch, '_')
+    return name.strip()
+
+
 @app.route('/upload', methods=['POST'])
 def upload():
     store_name = request.form.get('store_name', '').strip()
-    taken_at_str = request.form.get('taken_at', '').strip()
-    photo = request.files.get('photo')
+    uploader = request.form.get('uploader', '').strip()
+    taken_date_str = request.form.get('taken_date', '').strip()
+    photos = request.files.getlist('photo')
 
     if not store_name:
         return jsonify({'ok': False, 'error': '店舗名を入力してください'}), 400
-    if not photo or photo.filename == '':
+    if not uploader:
+        return jsonify({'ok': False, 'error': 'アップロード者名を入力してください'}), 400
+    photos = [p for p in photos if p and p.filename]
+    if not photos:
         return jsonify({'ok': False, 'error': '写真を選択してください'}), 400
 
-    # 日時パース（フォームの datetime-local 形式: "2026-06-17T14:30"）
+    # 日付パース（フォームの date 形式: "2026-06-17"）
     try:
-        taken_at = datetime.fromisoformat(taken_at_str) if taken_at_str else datetime.now()
+        taken_date = datetime.fromisoformat(taken_date_str) if taken_date_str else datetime.now()
     except ValueError:
-        taken_at = datetime.now()
+        taken_date = datetime.now()
 
-    ym_folder = taken_at.strftime('%Y-%m')
-    timestamp = taken_at.strftime('%Y%m%d_%H%M')
-    ext = os.path.splitext(photo.filename)[1] or '.jpg'
-    filename = f"{timestamp}_{store_name}{ext}"
+    ym_folder = taken_date.strftime('%Y-%m')
+    date_str = taken_date.strftime('%Y%m%d')
+    safe_store = _sanitize(store_name)
+    safe_uploader = _sanitize(uploader)
 
     try:
         service = get_drive_service()
@@ -102,15 +113,22 @@ def upload():
         store_id = get_or_create_folder(service, store_name, root_id)
         ym_id = get_or_create_folder(service, ym_folder, store_id)
 
-        file_data = photo.read()
-        media = MediaIoBaseUpload(io.BytesIO(file_data), mimetype=photo.content_type or 'image/jpeg')
-        file_meta = {'name': filename, 'parents': [ym_id]}
-        uploaded = service.files().create(body=file_meta, media_body=media, fields='id,name,webViewLink').execute()
+        uploaded_names = []
+        for i, photo in enumerate(photos, start=1):
+            ext = os.path.splitext(photo.filename)[1] or '.jpg'
+            seq = f"_{i:02d}" if len(photos) > 1 else ""
+            filename = f"{date_str}_{safe_store}_{safe_uploader}{seq}{ext}"
+            file_data = photo.read()
+            media = MediaIoBaseUpload(io.BytesIO(file_data), mimetype=photo.content_type or 'image/jpeg')
+            file_meta = {'name': filename, 'parents': [ym_id]}
+            service.files().create(body=file_meta, media_body=media, fields='id').execute()
+            uploaded_names.append(filename)
 
+        count = len(uploaded_names)
         return jsonify({
             'ok': True,
-            'message': f'アップロード完了: {filename}',
-            'link': uploaded.get('webViewLink', ''),
+            'message': f'{count}枚アップロード完了',
+            'files': uploaded_names,
         })
     except Exception as e:
         app.logger.error(e)
