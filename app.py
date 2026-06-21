@@ -85,6 +85,7 @@ def _sanitize(name):
 def upload():
     store_name = request.form.get('store_name', '').strip()
     uploader = request.form.get('uploader', '').strip()
+    season = request.form.get('season', '').strip()
     taken_date_str = request.form.get('taken_date', '').strip()
     photos = request.files.getlist('photo')
 
@@ -105,6 +106,8 @@ def upload():
     date_str = taken_date.strftime('%Y%m%d')
     safe_store = _sanitize(store_name)
     safe_uploader = _sanitize(uploader)
+    safe_season = _sanitize(season)
+    season_part = f"_{safe_season}" if safe_season else ""
 
     try:
         service = get_drive_service()
@@ -114,7 +117,7 @@ def upload():
         for i, photo in enumerate(photos, start=1):
             ext = os.path.splitext(photo.filename)[1] or '.jpg'
             seq = f"_{i:02d}" if len(photos) > 1 else ""
-            filename = f"{date_str}_{safe_store}_{safe_uploader}{seq}{ext}"
+            filename = f"{date_str}_{safe_store}{season_part}_{safe_uploader}{seq}{ext}"
             file_data = photo.read()
             media = MediaIoBaseUpload(io.BytesIO(file_data), mimetype=photo.content_type or 'image/jpeg')
             file_meta = {'name': filename, 'parents': [root_id]}

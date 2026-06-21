@@ -164,6 +164,15 @@
     <label for="uploader">アップロード者名</label>
     <input type="text" id="uploader" name="uploader" placeholder="例: 山田太郎" required>
 
+    <label for="season">棚割り（シーズン）<span style="color:#a0aec0;font-weight:400;">※任意</span></label>
+    <input type="text" id="season" name="season" placeholder="例: 26春夏" list="season-list">
+    <datalist id="season-list">
+      <option value="26春夏"></option>
+      <option value="26秋冬"></option>
+      <option value="27春夏"></option>
+      <option value="27秋冬"></option>
+    </datalist>
+
     <label for="taken_date">撮影日</label>
     <input type="date" id="taken_date" name="taken_date">
 
@@ -274,6 +283,7 @@
       const formData = new FormData();
       formData.append('store_name', document.getElementById('store_name').value);
       formData.append('uploader', document.getElementById('uploader').value);
+      formData.append('season', document.getElementById('season').value);
       formData.append('taken_date', dtInput.value);
       selectedFiles.forEach(f => formData.append('photo', f));
 
