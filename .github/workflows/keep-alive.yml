@@ -1,16 +1,25 @@
 name: keep-alive
 
-# Render無料プランのスリープを防ぐため、定期的にアプリへアクセスする
+# Render無料プランのスリープを防ぐ。
+# GitHubの定時実行は遅延しやすいため「タイマーに頼らず、1つの処理が
+# 長時間アクセスし続ける」方式にする。1ジョブが約5時間50分、5分おきに
+# アクセスし続け、それを数時間ごとに重ねて起動することで途切れを防ぐ。
 on:
   schedule:
-    - cron: '*/10 * * * *'   # 10分ごと
+    - cron: '0 */3 * * *'   # 3時間ごとに新しいジョブを起動（重ねがけ）
   workflow_dispatch:          # 手動実行も可能
 
 jobs:
   ping:
     runs-on: ubuntu-latest
+    timeout-minutes: 355      # 約5時間55分（GitHubの上限6時間の手前）
     steps:
-      - name: アプリにアクセスしてスリープを防ぐ
+      - name: 5分おきにアプリへアクセスし続けてスリープを防ぐ
         run: |
-          curl -s -o /dev/null -w "HTTP %{http_code}\n" --max-time 90 \
-            https://shelf-photo-app.onrender.com/
+          URL="https://shelf-photo-app.onrender.com/"
+          END=$(( $(date +%s) + 350*60 ))   # 約5時間50分ループ
+          while [ "$(date +%s)" -lt "$END" ]; do
+            code=$(curl -s -o /dev/null -w "%{http_code}" --max-time 90 "$URL" || echo "ERR")
+            echo "$(date -u '+%Y-%m-%d %H:%M:%S')Z  ping -> $code"
+            sleep 300
+          done
